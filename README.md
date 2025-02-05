@@ -69,7 +69,7 @@ To run the microbenchmark:
 $ ./microbench
 ```
 
-The [microbench](microbench.cpp) has several parameters you can pass, such as `read/write ratio`, `data_num` and configurations of XIndex-R.
+The [microbench](microbench.cpp) has several parameters you can pass, such as `read/insert`, `data_num` and configurations of LOFT.
 
 ```shell
 $ ./microbench --bg_n 2 --fg_n 24 --data_num 100000000 --init_num 100000000 --oper_num 100000000 --benchmark 0 --insert 0 --read 1
@@ -97,10 +97,9 @@ The list of the files in the project:
 ```
 The relationship between the header files:
 ```
-├── LOFT.h
-│   └── root.h  \\also contains how background thread works
-│       └── data_node.h  \\contains the index operations upon data node and structure modificatio operatinons of data node
+├── LOFT.h 
+│   └── root.h  \\contains the strcuture of the root node and the background thread performing retraining and updating the model
+│       └── data_node.h  \\contains the index operations upon data node and structure modification operations of data node
 ```
 The impl files contain the implementation of the classes in the header files.
-
 
