@@ -1,5 +1,5 @@
 ## Prerequisites
-This project uses [CMake](https://cmake.org/) (3.2+) for building and testing.
+This project uses [CMake](https://cmake.org/) (3.2+) and Ubuntu 18.04 for building and testing.
 It also requires dependencies of [Intel MKL](https://software.intel.com/en-us/mkl), [jemalloc](https://github.com/jemalloc/jemalloc) and [userspace-rcu](https://github.com/urcu/userspace-rcu).
 
 ### Installing Intel MKL
@@ -30,7 +30,7 @@ $ cd /usr/lib/x86_64-linux-gnu/
 $ ln -s libjemalloc.so.1 libjemalloc.so
 ```
 
-After the installation, please modify the following line in `CMakeLists.txt` accordingly.
+After the installation, please modify the following line in `CMakeLists.txt` accordingly. 
 
 ```cmake
 set(JEMALLOC_DIR "/usr/lib/x86_64-linux-gnu")
