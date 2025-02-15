@@ -277,8 +277,7 @@ namespace loft
             countered = false;
         }
         if(!(begin >= search_node->min_key)){
-            std::cout << "here !" << std::endl;
-            abort();
+            return 0;
         }
         size_t loc_i = node_num;
         while(remaining > 0){
@@ -633,6 +632,7 @@ bool Root<K, Val>::execute_smo(size_t &split, size_t & merge, size_t &expand, Dn
             return ;
         }else{
             write_ratio = (double)(write_amount) / (double)(write_amount + read_amount);
+            e_Dnode->cold = false;
         } 
         uint64_t init_buffer = e_Dnode->init_buffer_size;
         uint64_t init_size_in =  e_Dnode->init_amount();
@@ -684,10 +684,11 @@ bool Root<K, Val>::execute_smo(size_t &split, size_t & merge, size_t &expand, Dn
                 return;
             }
             if(fill_ratio < 0.6){
+            }else{
+                expand = true;
                 return;
             }
-            expand = true;
-            return;
+            
         }
         if(write_ratio >= 0.7){
             double insert_increment = ((write_amount) *(1 - hit_ratio));

@@ -18,7 +18,7 @@ void Dnode<K,Val>::init(const std::vector<K> & key_begin,const std::vector<Val> 
     this->init_size = array_size;
     this->worker_num = worker_num;
     if(init_size == 0){
-        std::cout << "init size is 0" << std::endl;
+        // std::cout << "init size is 0" << std::endl;
         return ;
     }
     this-> read_eplision_ = read_epsilon;
@@ -27,12 +27,12 @@ void Dnode<K,Val>::init(const std::vector<K> & key_begin,const std::vector<Val> 
     this->vals = new Val[this->array_size_];
     double tmp1 = seg.slope * expansion;
     int tmp2 = 0;
-    this->model = new LinearRegressionModel<K>(tmp1, tmp2,this->min_key);
+    this->model = new LinearRegressionModel<K>(tmp1, tmp2, this->min_key);
     size_t zoomed_amount = this->array_size_ / ZOOM_SHARE + 1;
-    this->zoomed_keys = new K*[zoomed_amount]();
-    this->zoomed_vals = new Val*[zoomed_amount]();
-    this->counter_r = new size_t[this->worker_num *3]();
-    this->counter_w = new size_t[this->worker_num *3]();
+    this->zoomed_keys = (K**)calloc(zoomed_amount, sizeof(K*));
+    this->zoomed_vals = (Val**)calloc(zoomed_amount, sizeof(Val*));
+    this->counter_r = (size_t*)calloc(this->worker_num *3, sizeof(size_t));
+    this->counter_w = (size_t*)calloc(this->worker_num *3, sizeof(size_t));
     size_t bias = 0;
     int64_t relative_po = 0;
     int64_t pivot = -1;
@@ -49,15 +49,13 @@ void Dnode<K,Val>::init(const std::vector<K> & key_begin,const std::vector<Val> 
             this->vals[relative_po] = *iter_val;
             iter_key++;
             iter_val++;
-             
-        }else if(pivot < array_size_ - 1 && (pivot >= relative_po && (pivot - relative_po + 2) < read_eplision_)){
+        }else if(pivot < array_size_ - 1 && (pivot >= relative_po && (pivot - relative_po + 1) < read_eplision_)){
             bias += (pivot + 1 - relative_po); 
             relative_po = pivot +1;
             this->keys[relative_po] = *iter_key;
             this->vals[relative_po] = *iter_val;
             iter_key++;
             iter_val++;
-             
         }else{
                 bias += read_eplision_;
                 init_buffer ++;
@@ -66,7 +64,7 @@ void Dnode<K,Val>::init(const std::vector<K> & key_begin,const std::vector<Val> 
                 if(relative_po >= this->array_size_){
                     relative_po = this->array_size_;
                 }
-                int loc = relative_po/read_eplision_;
+                int loc = relative_po/ZOOM_SHARE;
                 double full_lo = this->model->predict(*iter_key);
                 if(full_lo >= this->array_size_){
                     full_lo = this->array_size_;
@@ -81,13 +79,13 @@ void Dnode<K,Val>::init(const std::vector<K> & key_begin,const std::vector<Val> 
                     current_zoomed_level += 1;
                     if(*tmp_zoomed_kslot== 0){
                         //try to allocate the key region_slot, need to guarantee that there is only one
-                        K * new_zoomed_kslot = (K *)calloc((ZOOM_SHARE) * ZOOM_FACTOR + read_eplision_+ 1, sizeof(K));
+                        K * new_zoomed_kslot = new K[(ZOOM_SHARE) * ZOOM_FACTOR + read_eplision_+ 2] ();
                         *tmp_zoomed_kslot = new_zoomed_kslot;
                     }
                     if(*tmp_zoomed_vslot == 0){
                         //other thread allocate the key region but not allocate the value region
-                        Val * new_zoomed_vslot = new Val[(ZOOM_SHARE) * ZOOM_FACTOR + read_eplision_+ 1];
-                        new_zoomed_vslot[(ZOOM_SHARE) * ZOOM_FACTOR + read_eplision_] = 0;
+                        Val * new_zoomed_vslot = new Val[(ZOOM_SHARE) * ZOOM_FACTOR + read_eplision_+ 2];
+                        new_zoomed_vslot[(ZOOM_SHARE) * ZOOM_FACTOR + read_eplision_ + 1] = 0;
                         *tmp_zoomed_vslot = new_zoomed_vslot;
                     }
                     if(current_zoomed_level > zoomed_level){
@@ -100,19 +98,20 @@ void Dnode<K,Val>::init(const std::vector<K> & key_begin,const std::vector<Val> 
                         uint64_t empty = EMPTY_KEY;
                         // if(*(uint64_t *)&(k_slot[begin_addr+j]) == empty){
                         if((k_slot[begin_addr_i+j]) == empty){
-                                k_slot[begin_addr_i+j] = *iter_key;
-                                v_slot[j+begin_addr_i] = *iter_val;
-                                entered = true;
-                                break;
+                            k_slot[begin_addr_i+j] = *iter_key;
+                            v_slot[j+begin_addr_i] = *iter_val;
+                            entered = true;
+                            break;
                         }
+
 
                     }
                     if(entered){
                         break;
                     }
                     //is full, try to find the next level
-                    tmp_zoomed_kslot = (K **)(&k_slot[(ZOOM_SHARE) * ZOOM_FACTOR + read_eplision_]);
-                    tmp_zoomed_vslot = (Val **)(&v_slot[(ZOOM_SHARE) * ZOOM_FACTOR + read_eplision_]);
+                    tmp_zoomed_kslot = (K **)(&k_slot[(ZOOM_SHARE) * ZOOM_FACTOR + read_eplision_ + 1]);
+                    tmp_zoomed_vslot = (Val **)(&v_slot[(ZOOM_SHARE) * ZOOM_FACTOR + read_eplision_ + 1]);
                 }
                 iter_key++;
                 iter_val++;
@@ -123,20 +122,19 @@ void Dnode<K,Val>::init(const std::vector<K> & key_begin,const std::vector<Val> 
             *((uint64_t*)&keys[array_loc]) = EMPTY_KEY;
             array_loc++;
         }    
-        pivot = relative_po;
+        if(relative_po > pivot){
+            pivot = relative_po;
+        }
+        
     }
     //to fit the empty place from pivot to array_size_
     init_buffer_size = init_buffer;
+    pivot ++;
     while(pivot < array_size_){
         *((uint64_t*)&keys[pivot]) = EMPTY_KEY;
         pivot++;
     }
-    size_t per_bias = bias/array_size;
-    if(per_bias >= 8){
-        skew = true; 
-    }else{
-        skew = false;
-    }
+
 }
 
 
@@ -167,19 +165,7 @@ inline result_t Dnode<K, Val>::query(const K &key, Val &val, uint8_t & worker_id
         size_t end_a = predict_po + read_eplision_ >= this->array_size_ ? this->array_size_ : predict_po + read_eplision_;
         end_a --;
         if(0){
-            std::cout << "skew" << std::endl;
-            int step = end_a - begin_a;
-            int loc = find_first_num_avx2(key, &keys[begin_a], step);
-            if(loc != -1){
-                if(loc >= (read_eplision_/2)){
-                    counter_r[worker_id*3+1]++;
-                }else{
-                    counter_r[worker_id*3]++;
-                }
-                val = vals[begin_a + loc];
-                return result_t::ok;
-            }
-            return result_t::failed;
+
         }else{
             while(end_a >= begin_a){
                 if(keys[begin_a] == key ){
@@ -201,7 +187,8 @@ inline result_t Dnode<K, Val>::query(const K &key, Val &val, uint8_t & worker_id
 
     }
     if(key < min_key_in_model){
-        DEBUG_THIS("[error:] query_1! smaller than the min_key in the model");
+        // DEBUG_THIS("[error:] query_1! smaller than the min_key in the model");
+        return result_t::failed;
     }
 
     // continue to check the zoomed part
@@ -217,7 +204,6 @@ inline result_t Dnode<K, Val>::query(const K &key, Val &val, uint8_t & worker_id
         if(zoomed_kslot != 0 && zoomed_vslot != 0){
             int begin_addr = (relative_po % ZOOM_SHARE)*ZOOM_FACTOR + (full_lo - (double)relative_po)*ZOOM_FACTOR;
             while(1){
-
                 for(int j = 0; j < read_eplision_; j++){
                     if(zoomed_kslot[j+begin_addr] == key){
                         val = zoomed_vslot[j+begin_addr];
@@ -227,10 +213,10 @@ inline result_t Dnode<K, Val>::query(const K &key, Val &val, uint8_t & worker_id
                         return result_t::failed;
                     }
                 }
-                if(zoomed_vslot[(ZOOM_SHARE) * ZOOM_FACTOR + read_eplision_] != 0){
+                if(zoomed_vslot[(ZOOM_SHARE) * ZOOM_FACTOR + read_eplision_ + 1] != 0){
                     //enter to the next level
-                    zoomed_kslot = (K *)*(&zoomed_kslot[(ZOOM_SHARE) * ZOOM_FACTOR + read_eplision_]);
-                    zoomed_vslot = (Val *)*(&zoomed_vslot[(ZOOM_SHARE) * ZOOM_FACTOR + read_eplision_]);
+                    zoomed_kslot = (K *)*(&zoomed_kslot[(ZOOM_SHARE) * ZOOM_FACTOR + read_eplision_ + 1]);
+                    zoomed_vslot = (Val *)*(&zoomed_vslot[(ZOOM_SHARE) * ZOOM_FACTOR + read_eplision_ + 1]);
                     // std::cout << "search enter to the next level" << std::endl;
                 }else{
                     break;
@@ -388,7 +374,6 @@ inline result_t Dnode<K, Val>::query_shadownode(const K &key, Val &val, uint8_t 
         if(zoomed_kslot != 0 && zoomed_vslot != 0){
             int begin_addr = (relative_po % ZOOM_SHARE)*ZOOM_FACTOR + (full_lo - (double)relative_po)*ZOOM_FACTOR;
             while(1){
-                current_zoomed_level ++;
 
                 for(int j = 0; j < read_eplision_; j++){
                     if(zoomed_kslot[j+begin_addr] == key){
@@ -402,10 +387,10 @@ inline result_t Dnode<K, Val>::query_shadownode(const K &key, Val &val, uint8_t 
                         return result_t::failed;
                     }
                 }
-                if(zoomed_vslot[(ZOOM_SHARE) * ZOOM_FACTOR + read_eplision_] != 0){
+                if(zoomed_vslot[(ZOOM_SHARE) * ZOOM_FACTOR + read_eplision_ + 1] != 0){
                     //enter to the next level
-                    zoomed_kslot = (K *)*(&zoomed_kslot[(ZOOM_SHARE) * ZOOM_FACTOR + read_eplision_]);
-                    zoomed_vslot = (Val *)*(&zoomed_vslot[(ZOOM_SHARE) * ZOOM_FACTOR + read_eplision_]);
+                    zoomed_kslot = (K *)*(&zoomed_kslot[(ZOOM_SHARE) * ZOOM_FACTOR + read_eplision_ + 1]);
+                    zoomed_vslot = (Val *)*(&zoomed_vslot[(ZOOM_SHARE) * ZOOM_FACTOR + read_eplision_ + 1]);
                     // std::cout << "search enter to the next level" << std::endl;
                 }else{
                     break;
@@ -967,7 +952,7 @@ inline result_t Dnode<K, Val>::insert_to_expand_bucket(const K &key,const Val &v
         current_zoomed_level += 1;
         if( *tmp_zoomed_kslot == 0){
             //try to allocate the key region_slot, need to guarantee that there is only one
-            K * new_zoomed_kslot = (K *)calloc(ZOOM_SHARE * ZOOM_FACTOR +read_eplision_ +1, sizeof(K));
+            K * new_zoomed_kslot = (K *)calloc(ZOOM_SHARE * ZOOM_FACTOR +read_eplision_ +2, sizeof(K));
             K * null_ptr = 0;
             if(!CAS(tmp_zoomed_kslot, &null_ptr, new_zoomed_kslot)){
                 free(new_zoomed_kslot);
@@ -975,8 +960,9 @@ inline result_t Dnode<K, Val>::insert_to_expand_bucket(const K &key,const Val &v
         }
         if(*tmp_zoomed_vslot == 0){
             //other thread allocate the key region but not allocate the value region
-            Val * new_zoomed_vslot = (Val *)malloc((ZOOM_SHARE * ZOOM_FACTOR +read_eplision_ +1)*sizeof(Val));
-            Val * null_ptr = nullptr;
+            Val * new_zoomed_vslot = (Val *)malloc((ZOOM_SHARE * ZOOM_FACTOR +read_eplision_ +2)*sizeof(Val));
+            new_zoomed_vslot[ZOOM_SHARE * ZOOM_FACTOR +read_eplision_ +1] = 0;
+            Val * null_ptr = 0;
             if(!CAS(tmp_zoomed_vslot, &null_ptr, new_zoomed_vslot)){
                 //already other thread allocate new slot
                 free(new_zoomed_vslot);
@@ -990,6 +976,7 @@ inline result_t Dnode<K, Val>::insert_to_expand_bucket(const K &key,const Val &v
         Val * v_slot = *tmp_zoomed_vslot;
         for(int j = 0; j < read_eplision_; j++){
             uint64_t empty = EMPTY_KEY;
+
             if(CAS((uint64_t *)&(k_slot[begin_addr+j]), &empty,key)){
                     counter_w[worker_id*3+2]++;
                     if(retraining_phase  && this->write_log != nullptr){
@@ -1016,8 +1003,8 @@ inline result_t Dnode<K, Val>::insert_to_expand_bucket(const K &key,const Val &v
                 }
             }
             //is full, try to find the next level
-            tmp_zoomed_kslot = (K **)(&k_slot[(ZOOM_SHARE) * ZOOM_FACTOR + read_eplision_]);
-            tmp_zoomed_vslot = (Val **)(&v_slot[(ZOOM_SHARE) * ZOOM_FACTOR + read_eplision_]);
+            tmp_zoomed_kslot = (K **)(&k_slot[(ZOOM_SHARE) * ZOOM_FACTOR + read_eplision_ + 1]);
+            tmp_zoomed_vslot = (Val **)(&v_slot[(ZOOM_SHARE) * ZOOM_FACTOR + read_eplision_ + 1]);
         }
     return result_t::failed;
 }
@@ -1315,7 +1302,7 @@ void Dnode<K,Val>::expansion(const std::vector<K> & key_begin,const std::vector<
     this->min_key = key_begin[0];
     this->array_size_ = (this->array_size_ + 2) * expansion_factor;
     this->model = new LinearRegressionModel<K>(tmp1, tmp2,seg.key);
-    size_t zoomed_amount = this->array_size_ / this->read_eplision_ + 1;
+    size_t zoomed_amount = this->array_size_ / ZOOM_SHARE + 1;
     this->zoomed_keys = new K*[zoomed_amount]();
     this->zoomed_vals = new Val*[zoomed_amount]();
 
@@ -1359,8 +1346,8 @@ void Dnode<K,Val>::expansion(const std::vector<K> & key_begin,const std::vector<
                     relative_po = this->array_size_;
                     full_lo == this->array_size_;
                 }
-                int loc = relative_po/read_eplision_;
-                int begin_addr =  (relative_po % read_eplision_)*ZOOM_FACTOR + (full_lo - (double)relative_po)*ZOOM_FACTOR;
+                int loc = relative_po/ZOOM_SHARE;
+                int begin_addr =  (relative_po % ZOOM_SHARE)*ZOOM_FACTOR + (full_lo - (double)relative_po)*ZOOM_FACTOR;
                 K** tmp_zoomed_kslot = &zoomed_keys[loc];
                 Val** tmp_zoomed_vslot = &zoomed_vals[loc];
                 int current_zoomed_level = 0;
@@ -1369,16 +1356,13 @@ void Dnode<K,Val>::expansion(const std::vector<K> & key_begin,const std::vector<
                     current_zoomed_level += 1;
                     if(*tmp_zoomed_kslot== 0){
                         //try to allocate the key region_slot, need to guarantee that there is only one
-                        K * new_zoomed_kslot = new K[(ZOOM_FACTOR + 1) * read_eplision_ * current_zoomed_level + 1]();
-                        for(int j = 0; j < (ZOOM_FACTOR + 1) * read_eplision_ * current_zoomed_level + 1; j++){
-                            new_zoomed_kslot[j] = 0;
-                        }
+                        K * new_zoomed_kslot = (K *)calloc((ZOOM_SHARE) * ZOOM_FACTOR + read_eplision_+ 2, sizeof(K));
                         *tmp_zoomed_kslot = new_zoomed_kslot;
                     }
                     if(*tmp_zoomed_vslot == 0){
                         //other thread allocate the key region but not allocate the value region
-                        Val * new_zoomed_vslot = new Val[(ZOOM_FACTOR + 1) * read_eplision_  * current_zoomed_level + 1];
-                        new_zoomed_vslot[(ZOOM_FACTOR + 1) * read_eplision_ * current_zoomed_level] = 0;
+                        Val * new_zoomed_vslot = new Val[(ZOOM_SHARE) * ZOOM_FACTOR + read_eplision_+ 2];
+                        new_zoomed_vslot[(ZOOM_SHARE) * ZOOM_FACTOR + read_eplision_+ 1] = 0;
                         *tmp_zoomed_vslot = new_zoomed_vslot;
                     }
                     if(current_zoomed_level > zoomed_level){
@@ -1387,8 +1371,7 @@ void Dnode<K,Val>::expansion(const std::vector<K> & key_begin,const std::vector<
                     //make sure that both Key and value slot exist
                     K * k_slot = *tmp_zoomed_kslot;
                     Val * v_slot = *tmp_zoomed_vslot;
-                     begin_addr = begin_addr * current_zoomed_level;
-                    for(int j = 0; j < ZOOM_FACTOR * current_zoomed_level; j++){
+                    for(int j = 0; j < read_eplision_; j++){
                         uint64_t empty = EMPTY_KEY;
                         if(k_slot[begin_addr+j] == empty){
                                 k_slot[begin_addr+j] = *iter_key;
@@ -1402,9 +1385,8 @@ void Dnode<K,Val>::expansion(const std::vector<K> & key_begin,const std::vector<
                             break;
                         }
                         //is full, try to find the next level
-                        tmp_zoomed_kslot = (K **)(&k_slot[(ZOOM_FACTOR + 1) * read_eplision_ * current_zoomed_level]);
-                    tmp_zoomed_vslot = (Val **)(&v_slot[(ZOOM_FACTOR + 1) * read_eplision_ * current_zoomed_level]);
-                    begin_addr = begin_addr/current_zoomed_level;
+                        tmp_zoomed_kslot = (K **)(&k_slot[(ZOOM_SHARE) * ZOOM_FACTOR + read_eplision_+ 1]);
+                        tmp_zoomed_vslot = (Val **)(&v_slot[(ZOOM_SHARE) * ZOOM_FACTOR + read_eplision_+ 1]);
                     }
                 iter_key++;
                 iter_val++;
@@ -1417,7 +1399,9 @@ void Dnode<K,Val>::expansion(const std::vector<K> & key_begin,const std::vector<
             *((uint64_t*)&keys[array_loc]) = EMPTY_KEY;
             array_loc++;
         }    
-        pivot = relative_po;  
+        if(pivot < relative_po){
+            pivot = relative_po;
+        }
     }
     this->init_buffer_size = buffer_size;
     while(pivot < array_size_){
@@ -1429,13 +1413,13 @@ void Dnode<K,Val>::expansion(const std::vector<K> & key_begin,const std::vector<
 
 template<typename K, typename Val>
 void Dnode<K,Val>::free_data(){
-    delete [] this->keys;
-    delete [] this->vals;
+    // delete [] this->keys;
+    // delete [] this->vals;
 }
 
 template<typename K, typename Val>
 void Dnode<K,Val>::free_log(){
-    this->write_log->free();
+    // this->write_log->free();
 }
 //needs to update the value also using CAS
 template<typename K, typename Val>
@@ -1712,7 +1696,7 @@ template<typename K, typename Val>
 void Dnode<K, Val>::insertion_search_sort(std::vector<K> & new_keys,std::vector<Val> & new_vals, size_t & n){
     size_t loc_new  = 0;
     size_t key_in_array = 0;
-    size_t zoomed_number =this->array_size_/this->read_eplision_ + 1;
+    size_t zoomed_number =this->array_size_/ZOOM_SHARE + 1;
     size_t largest_level = this->zoomed_level;
     for(size_t zoomed_counter = 0; zoomed_counter < zoomed_number; zoomed_counter ++){
         //sort the data in zoomed slot
@@ -1730,9 +1714,9 @@ void Dnode<K, Val>::insertion_search_sort(std::vector<K> & new_keys,std::vector<
                 if(level > largest_level){
                     break;
                 }
-                next_zoom_K = (K *) * (&tmp_zoom_K[(ZOOM_FACTOR + 1) * read_eplision_ * level]);
-                next_zoom_V = (Val *) * (&tmp_zoom_V[(ZOOM_FACTOR + 1) * read_eplision_ * level]);
-                for(int j = 0; j < this->read_eplision_ * ZOOM_FACTOR * level ; j++){
+                next_zoom_K = (K *) * (&tmp_zoom_K[(ZOOM_FACTOR) * ZOOM_SHARE + read_eplision_ + 1]);
+                next_zoom_V = (Val *) * (&tmp_zoom_V[(ZOOM_FACTOR) * ZOOM_SHARE + read_eplision_ + 1]);
+                for(int j = 0; j < (ZOOM_FACTOR) * ZOOM_SHARE + read_eplision_ ; j++){
                     if(*((uint64_t *)&tmp_zoom_K[j]) != EMPTY_KEY ){
                         K ret = tmp_zoom_K[j];
                         new_keys.push_back(0);
@@ -1755,7 +1739,7 @@ void Dnode<K, Val>::insertion_search_sort(std::vector<K> & new_keys,std::vector<
             }
         }
         //compact the data in the array
-        for(int i = 0; i < this->read_eplision_; i++){
+        for(int i = 0; i < ZOOM_SHARE; i++){
             if(key_in_array == this->array_size_){
                 break;
             }

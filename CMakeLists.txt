@@ -9,7 +9,7 @@ set(MKL_LINK_DIRECTORY "/opt/intel/mkl/lib/intel64")
 set(MKL_INCLUDE_DIRECTORY "/opt/intel/mkl/include")
 set(JEMALLOC_DIR "/usr/lib/x86_64-linux-gnu")
 
-include_directories(${PROJECT_SOURCE_DIR} "/home/userspace-rcu/include" )
+include_directories(${PROJECT_SOURCE_DIR} "/home/myx/userspace-rcu/include" )
 include_directories(${MKL_INCLUDE_DIRECTORY})
 
 ADD_DEFINITIONS(-std=c++17)

@@ -159,6 +159,7 @@ namespace loft
             root_t *tmp_root = index.root;
             for (size_t j = 0; j < bg_num; j++)
             {
+
                 assert(bg_work_queues[j].empty());
             }
             uint64_t round = tmp_root->data_node_num / bg_num;

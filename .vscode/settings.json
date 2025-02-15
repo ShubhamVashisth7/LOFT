@@ -53,6 +53,8 @@
         "typeinfo": "cpp",
         "fstream": "cpp",
         "variant": "cpp",
-        "bit": "cpp"
+        "bit": "cpp",
+        "condition_variable": "cpp",
+        "mutex": "cpp"
     }
 }
