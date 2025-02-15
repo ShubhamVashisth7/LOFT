@@ -1,5 +1,5 @@
 ## Prerequisites
-This project uses [CMake](https://cmake.org/) (3.2+) for building and testing.
+This project uses [CMake](https://cmake.org/) (3.2+) and Ubuntu 18.04 for building and testing.
 It also requires dependencies of [Intel MKL](https://software.intel.com/en-us/mkl), [jemalloc](https://github.com/jemalloc/jemalloc) and [userspace-rcu](https://github.com/urcu/userspace-rcu).
 
 ### Installing Intel MKL
@@ -7,13 +7,13 @@ Detailed steps can be found [here](https://software.intel.com/en-us/articles/ins
 
 ```shell
 $ cd /tmp
-$ wget https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS-2019.PUB
-$ apt-key add GPG-PUB-KEY-INTEL-SW-PRODUCTS-2019.PUB
-$ rm GPG-PUB-KEY-INTEL-SW-PRODUCTS-2019.PUB
+$ wget https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB
+$ apt-key add GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB
+$ rm GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB
 
 $ sh -c 'echo deb https://apt.repos.intel.com/mkl all main > /etc/apt/sources.list.d/intel-mkl.list'
 $ apt-get update
-$ apt-get install -y intel-mkl-2019.0-045
+$ apt-get install -y intel-mkl-2020.4-912
 ```
 
 After the installation, please modify the following two lines in `CMakeLists.txt` accordingly.
@@ -30,7 +30,7 @@ $ cd /usr/lib/x86_64-linux-gnu/
 $ ln -s libjemalloc.so.1 libjemalloc.so
 ```
 
-After the installation, please modify the following line in `CMakeLists.txt` accordingly.
+After the installation, please modify the following line in `CMakeLists.txt` accordingly. 
 
 ```cmake
 set(JEMALLOC_DIR "/usr/lib/x86_64-linux-gnu")
@@ -102,4 +102,3 @@ The relationship between the header files:
 │       └── data_node.h  \\contains the index operations upon data node and structure modification operations of data node
 ```
 The impl files contain the implementation of the classes in the header files.
-
