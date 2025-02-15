@@ -39,9 +39,9 @@ std::vector<KEY_TYPE> exist_keys;
 std::vector<KEY_TYPE> non_exist_keys;
 // parameters
 size_t fg_n = 1;
-int init_data_num = 10000000;
-int data_num = 200000000;
-uint64_t oper_num = 100000000;
+int init_data_num = 1000000;
+int data_num = 20000000;
+uint64_t oper_num = 1000000;
 size_t bg_n = 1;
 size_t benchmark = 1;
 size_t run_time = 5;

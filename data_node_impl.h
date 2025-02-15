@@ -1356,7 +1356,7 @@ void Dnode<K,Val>::expansion(const std::vector<K> & key_begin,const std::vector<
                     current_zoomed_level += 1;
                     if(*tmp_zoomed_kslot== 0){
                         //try to allocate the key region_slot, need to guarantee that there is only one
-                        K * new_zoomed_kslot = (K *)calloc((ZOOM_SHARE) * ZOOM_FACTOR + read_eplision_+ 2, sizeof(K));
+                        K * new_zoomed_kslot = new K[(ZOOM_SHARE) * ZOOM_FACTOR + read_eplision_+ 2]();
                         *tmp_zoomed_kslot = new_zoomed_kslot;
                     }
                     if(*tmp_zoomed_vslot == 0){
