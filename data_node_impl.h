@@ -1481,7 +1481,7 @@ bool Dnode<K, Val>::sync_log(const K &key, const Val &val){
     }
     //whether this slot is created
     predict_po = full_lo;
-    int loc = predict_po/read_eplision_;
+    int loc = predict_po/ZOOM_SHARE;
     int begin_addr = (predict_po % ZOOM_SHARE)*ZOOM_FACTOR + (full_lo - (double)predict_po)*ZOOM_FACTOR;
 
     K** tmp_zoomed_kslot = &zoomed_keys[loc];
@@ -1492,10 +1492,7 @@ bool Dnode<K, Val>::sync_log(const K &key, const Val &val){
         current_zoomed_level += 1;
         if( *tmp_zoomed_kslot == 0){
             //try to allocate the key region_slot, need to guarantee that there is only one
-            K * new_zoomed_kslot = new K[(ZOOM_FACTOR + 1) * read_eplision_ * current_zoomed_level + 1]();
-            for(int j = 0; j < (ZOOM_FACTOR + 1) * read_eplision_ * current_zoomed_level + 1; j++){
-                new_zoomed_kslot[j] = 0;
-            }
+            K * new_zoomed_kslot = new K[ZOOM_SHARE * ZOOM_FACTOR +read_eplision_ +2]();
             K * null_ptr = 0;
             if(!CAS(tmp_zoomed_kslot, &null_ptr, new_zoomed_kslot)){
                 delete[] new_zoomed_kslot;
@@ -1503,8 +1500,8 @@ bool Dnode<K, Val>::sync_log(const K &key, const Val &val){
         }
         if(*tmp_zoomed_vslot == 0){
             //other thread allocate the key region but not allocate the value region
-            Val * new_zoomed_vslot = new Val[(ZOOM_FACTOR + 1) * read_eplision_  * current_zoomed_level + 1];
-            new_zoomed_vslot[(ZOOM_FACTOR + 1) * read_eplision_  * current_zoomed_level] = 0;
+            Val * new_zoomed_vslot = new Val[ZOOM_SHARE * ZOOM_FACTOR +read_eplision_ +2];
+            new_zoomed_vslot[ZOOM_SHARE * ZOOM_FACTOR +read_eplision_ +1] = 0;
             Val * null_ptr = nullptr;
             if(!CAS(tmp_zoomed_vslot, &null_ptr, new_zoomed_vslot)){
                 //already other thread allocate new slot
@@ -1517,8 +1514,8 @@ bool Dnode<K, Val>::sync_log(const K &key, const Val &val){
         //make sure that both Key and value slot exist
         K * k_slot = *tmp_zoomed_kslot;
         Val * v_slot = *tmp_zoomed_vslot;
-        begin_addr = begin_addr * current_zoomed_level;
-        for(int j = 0; j < ZOOM_FACTOR* current_zoomed_level; j++){
+
+        for(int j = 0; j < read_eplision_; j++){
             uint64_t empty = EMPTY_KEY;
             if(CAS((uint64_t *)&(k_slot[begin_addr+j]), &empty,key)){
                     //write number and buffer counter increase
@@ -1544,9 +1541,8 @@ bool Dnode<K, Val>::sync_log(const K &key, const Val &val){
                 }
             }
             //is full, try to find the next level
-            tmp_zoomed_kslot = (K **)(&k_slot[(ZOOM_FACTOR + 1) * read_eplision_ * current_zoomed_level]);
-            tmp_zoomed_vslot = (Val **)(&v_slot[(ZOOM_FACTOR + 1) * read_eplision_ * current_zoomed_level]);
-            begin_addr = begin_addr/current_zoomed_level;
+            tmp_zoomed_kslot = (K **)(&k_slot[(ZOOM_SHARE) * ZOOM_FACTOR + read_eplision_ + 1]);
+            tmp_zoomed_vslot = (Val **)(&v_slot[(ZOOM_SHARE) * ZOOM_FACTOR + read_eplision_ + 1]);
         }
     return false;
 }
