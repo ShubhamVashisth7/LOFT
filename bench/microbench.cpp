@@ -204,7 +204,7 @@ void *run_fg(void *param) {
 
 int main(int argc, char ** argv){
     // Generate some random data
-    parse_args(argc, argv);
+    // parse_args(argc, argv);
     load_data();
     generate_operations();
     std::vector<VAL_TYPE> vals(init_data_num);

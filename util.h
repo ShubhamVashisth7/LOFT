@@ -281,32 +281,32 @@ public:
 
 
 int find_first_num_avx2(size_t key, uint64_t *array, int size) {
-    int i = 0;
-    __m256i A_vec = _mm256_set1_epi64x(key);
-    // Process 4 uint64_t elements (256 bits) at a time
-    for (; i + 4 <= size; i += 4) {
-        // Load 4 uint64_t values into an AVX2 register
-        __m256i data = _mm256_loadu_si256((__m256i*)&array[i]);
+    // int i = 0;
+    // __m256i A_vec = _mm256_set1_epi64x(key);
+    // // Process 4 uint64_t elements (256 bits) at a time
+    // for (; i + 4 <= size; i += 4) {
+    //     // Load 4 uint64_t values into an AVX2 register
+    //     __m256i data = _mm256_loadu_si256((__m256i*)&array[i]);
 
-        __m256i cmpA = _mm256_cmpeq_epi64(data, A_vec);
-        // Convert the comparison result into a bitmask
-        int mask = _mm256_movemask_epi8(cmpA);
+    //     __m256i cmpA = _mm256_cmpeq_epi64(data, A_vec);
+    //     // Convert the comparison result into a bitmask
+    //     int mask = _mm256_movemask_epi8(cmpA);
 
-        // If the mask is non-zero, find the first zero element
-        if (mask != 0) {
-            // Find the index of the first zero within the chunk
-            int zero_index = __builtin_ctz(mask) / 8;  // Find the first 1-bit (8 bytes per element)
-            return i + zero_index;
-        }
-    }
+    //     // If the mask is non-zero, find the first zero element
+    //     if (mask != 0) {
+    //         // Find the index of the first zero within the chunk
+    //         int zero_index = __builtin_ctz(mask) / 8;  // Find the first 1-bit (8 bytes per element)
+    //         return i + zero_index;
+    //     }
+    // }
 
-    // Check the remainder of the array (if any)
-    for (; i < size; i++) {
-        if (array[i] == 0) {
-            return i;
-        }
-    }
-
+    // // Check the remainder of the array (if any)
+    // for (; i < size; i++) {
+    //     if (array[i] == 0) {
+    //         return i;
+    //     }
+    // }
+    std::cout << "do not support that" << std::endl;
     // Return -1 if no zero is found
     return -1;
 }
