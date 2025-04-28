@@ -430,6 +430,7 @@ namespace loft
             }
         }
         // std::this_thread::sleep_for(std::chrono::milliseconds(sleep_time/10));
+        return nullptr;
     }
 
 template <typename K, typename Val>
